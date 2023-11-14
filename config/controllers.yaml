@@ -3,7 +3,7 @@ controller_manager:
     update_rate: 1000 # Hz
 
     my_controller:
-      type: controller_interface/ControllerInterface
+      type: my_controller/MyController
 
 franka_robot_state_broadcaster:
   ros__parameters:
@@ -13,7 +13,7 @@ model_example_controller:
   ros__parameters:
     arm_id: panda
 
-joint_trajectory_controller:
+my_controller:
   ros__parameters:
     joints:
       - panda_joint1
@@ -28,6 +28,7 @@ joint_trajectory_controller:
     state_interfaces:
       - position
       - velocity
+      - effort
     gains:
       panda_joint1: { p: 600., d: 30., i: 0., i_clamp: 1. }
       panda_joint2: { p: 600., d: 30., i: 0., i_clamp: 1. }

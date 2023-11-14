@@ -19,8 +19,6 @@
   <depend>rcpputils</depend>
   <depend>realtime_tools</depend>
   <depend>trajectory_msgs</depend>
-  <depend>pinocchio</depend>
-  <depend>my_controller_interface</depend>
 
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>

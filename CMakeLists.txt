@@ -9,6 +9,7 @@ endif()
 set(REF_GEN_INCLUDE_DEPENDS
   kdl_parser
   rclcpp
+  Eigen3
 )
 set(CONTROLLER_INCLUDE_DEPENDS
   pluginlib
@@ -16,6 +17,8 @@ set(CONTROLLER_INCLUDE_DEPENDS
   controller_interface
   realtime_tools
   trajectory_msgs
+  pinocchio
+  my_controller_interface
 )
 
 # find dependencies
@@ -29,6 +32,8 @@ endforeach()
 
 
 ## COMPILE
+
+add_definitions(-DOPENCV_DISABLE_EIGEN_TENSOR_SUPPORT)
 
 
 add_library(
@@ -62,7 +67,9 @@ install(TARGETS my_controller
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-
+install(DIRECTORY urdf/
+  DESTINATION share/${PROJECT_NAME}/urdf
+)
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 endif()
