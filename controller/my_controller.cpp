@@ -16,6 +16,13 @@ using config_type = controller_interface::interface_configuration_type;
 
 namespace my_controller
 {
+  MyController::MyController() : controller_interface::ControllerInterface()
+  {
+
+    this->setStiffness(200., 200., 200., 20., 20., 20., 0.);
+    this->cartesian_stiffness_ = this->cartesian_stiffness_target_;
+    this->cartesian_damping_ = this->cartesian_damping_target_;
+  }
 
   Eigen::Vector3d calculateOrientationError(const Eigen::Quaterniond &orientation_d, Eigen::Quaterniond orientation)
   {
@@ -398,14 +405,6 @@ namespace my_controller
     }
   }
 
-  MyController::MyController() : controller_interface::ControllerInterface()
-  {
-
-    this->setStiffness(200., 200., 200., 20., 20., 20., 0.);
-    this->cartesian_stiffness_ = this->cartesian_stiffness_target_;
-    this->cartesian_damping_ = this->cartesian_damping_target_;
-  }
-
   controller_interface::CallbackReturn MyController::on_init()
   {
     const std::string urdf_filename = "/home/aidara/ros2_ws/src/my_controller/controller/urdf/panda.urdf";
@@ -489,7 +488,7 @@ namespace my_controller
 
     trajectory_service_ =
         get_node()->create_service<my_controller_interface::srv::MyController>(
-            "~/joint_trajectory", init_trajectory);
+            "~/joint_trajectory", std::bind(&MyController::initTrajectory, this, std::placeholders::_1, std::placeholders::_2));
 
     return CallbackReturn::SUCCESS;
   }
@@ -594,14 +593,17 @@ namespace my_controller
     if (position_d_error.norm() <= 0.01)
     {
       this->traj_index_++;
-    }
-    if (this->traj_index_ > this->trajectory_.points.size())
       // Get end effector pose
       Eigen::VectorXd q = Eigen::VectorXd::Map(trajectory_.points.at(this->traj_index_).positions.data(),
                                                trajectory_.points.at(this->traj_index_).positions.size());
+      getFk(q, &this->position_d_target_, &this->orientation_d_target_);
+      this->setNullspaceConfig(q);
+    }
+    if (this->traj_index_ > this->trajectory_.points.size())
+    {
+      this->traj_running_ = false;
+    }
     // Update end-effector pose and nullspace
-    getFk(q, &this->position_d_target_, &this->orientation_d_target_);
-    this->setNullspaceConfig(q);
 
     // if (ros::Time::now() > (this->traj_start_ + this->traj_duration_))
     // {
@@ -620,23 +622,23 @@ namespace my_controller
     using namespace pinocchio;
 
     // Create data required by the algorithms
-    Data data(model);
+    Data data(model_);
     // Perform the forward kinematics over the kinematic tree
-    forwardKinematics(model, data, q);
-    updateFramePlacements(model, data);
-    int frame_id = model.getFrameId("panda_hand");
+    forwardKinematics(model_, data, q);
+    updateFramePlacements(model_, data);
+    int frame_id = model_.getFrameId("panda_hand");
     *position = data.oMf[frame_id].translation();
     *orientation = Eigen::Quaterniond(data.oMf[frame_id].rotation());
 
     return true;
   }
 
-  void MyController::initTrajectories(const std::shared_ptr<my_controller_interface::srv::MyController::Request> request,
-                                      std::shared_ptr<my_controller_interface::srv::MyController::Response> response)
+  void MyController::initTrajectory(const std::shared_ptr<my_controller_interface::srv::MyController::Request> request,
+                                    std::shared_ptr<my_controller_interface::srv::MyController::Response> response)
   {
     // error handeling needed, maybe transfer to action server
     trajectory_ = request->trajectory;
-    response->succes = true;
+    response->success = true;
   }
 
   void MyController::updateState()
@@ -644,9 +646,9 @@ namespace my_controller
 
     for (size_t i = 0; i < joint_names_.size(); i++)
     {
-      q_ = joint_position_state_interface_[i].get();
-      dq_ = joint_velocity_state_interface_[i].get();
-      tau_m_ = joint_effort_state_interface_[i].get();
+      q_[i] = joint_position_state_interface_[i].get().get_value();
+      dq_[i] = joint_velocity_state_interface_[i].get().get_value();
+      tau_m_[i] = joint_effort_state_interface_[i].get().get_value();
     }
     getJacobian(this->q_, &this->jacobian_);
     getFk(this->q_, &this->position_, &this->orientation_);

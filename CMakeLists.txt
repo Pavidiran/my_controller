@@ -67,7 +67,7 @@ install(TARGETS my_controller
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-install(DIRECTORY urdf/
+install(DIRECTORY controller/urdf/
   DESTINATION share/${PROJECT_NAME}/urdf
 )
 if(BUILD_TESTING)
