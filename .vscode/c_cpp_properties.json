@@ -1,0 +1,47 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/pavi/ros2_ws/install/zed_topic_benchmark_interfaces/include/**",
+        "/home/pavi/ros2_ws/install/zed_rgb_convert/include/**",
+        "/home/pavi/ros2_ws/install/zed_components/include/**",
+        "/home/pavi/ros2_ws/install/rviz_plugin_zed_od/include/**",
+        "/home/pavi/ros2_ws/install/zed_interfaces/include/**",
+        "/home/pavi/ros2_ws/install/moveit_task_constructor_visualization/include/**",
+        "/home/pavi/ros2_ws/install/moveit_task_constructor_demo/include/**",
+        "/home/pavi/ros2_ws/install/moveit_task_constructor_core/include/**",
+        "/home/pavi/ros2_ws/install/rviz_marker_tools/include/**",
+        "/home/pavi/ros2_ws/install/moveit_task_constructor_msgs/include/**",
+        "/home/pavi/ros2_ws/install/joint_trajectory_controller/include/**",
+        "/home/pavi/ros2_ws/install/grasping_interface/include/**",
+        "/home/pavi/ros2_ws/install/franka_robot_state_broadcaster/include/**",
+        "/home/pavi/ros2_ws/install/franka_example_controllers/include/**",
+        "/home/pavi/ros2_ws/install/franka_semantic_components/include/**",
+        "/home/pavi/ros2_ws/install/franka_hardware/include/**",
+        "/home/pavi/ros2_ws/install/franka_msgs/include/**",
+        "/opt/ros/iron/include/**",
+        "/home/pavi/ros2_ws/src/grasp_moveit/franka_ros2/franka_example_controllers/include/**",
+        "/home/pavi/ros2_ws/src/grasp_moveit/franka_ros2/franka_gripper/include/**",
+        "/home/pavi/ros2_ws/src/grasp_moveit/franka_ros2/franka_hardware/include/**",
+        "/home/pavi/ros2_ws/src/grasp_moveit/franka_ros2/franka_robot_state_broadcaster/include/**",
+        "/home/pavi/ros2_ws/src/grasp_moveit/franka_ros2/franka_semantic_components/include/**",
+        "/home/pavi/ros2_ws/src/grasp_moveit/franka_ros2/joint_trajectory_controller/include/**",
+        "/home/pavi/ros2_ws/src/grasp_moveit/moveit_task_constructor/core/include/**",
+        "/home/pavi/ros2_ws/src/grasp_moveit/moveit_task_constructor/demo/include/**",
+        "/home/pavi/ros2_ws/src/grasp_moveit/moveit_task_constructor/rviz_marker_tools/include/**",
+        "/home/pavi/ros2_ws/src/mtc_tutorial/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

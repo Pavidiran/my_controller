@@ -1,4 +1,4 @@
-#include "my_controller/my_controller.hpp"
+ #include "my_controller/my_controller.hpp"
 #include "my_controller/pseudo_inversion.hpp"
 
 #include <stddef.h>
@@ -117,6 +117,7 @@ namespace my_controller
     this->q_d_nullspace_ = Eigen::VectorXd::Zero(this->n_joints_);
     this->q_d_nullspace_target_ = this->q_d_nullspace_;
     this->tau_c_ = Eigen::VectorXd::Zero(this->n_joints_);
+    this->tau_m_ = Eigen::VectorXd::Zero(this->n_joints_);
   }
 
   void MyController::setStiffness(const Eigen::Matrix<double, 7, 1> &stiffness, bool auto_damping)
@@ -253,32 +254,37 @@ namespace my_controller
   Eigen::VectorXd MyController::calculateCommandedTorques()
   {
     // Perform a filtering step
+    std::cout <<"calculate torques Start"<< std::endl;
     updateFilteredNullspaceConfig();
     updateFilteredStiffness();
     updateFilteredPose();
     updateFilteredWrench();
-
+    std::cout <<"calculate torques 1"<< std::endl;
     // Compute error term
     this->error_.head(3) << this->position_ - this->position_d_;
     this->error_.tail(3) << calculateOrientationError(this->orientation_d_, this->orientation_);
-
     // Kinematic pseuoinverse
     Eigen::MatrixXd jacobian_transpose_pinv;
-    pseudoInverse(this->jacobian_.transpose(), &jacobian_transpose_pinv);
-
+    pseudoInverse((this->jacobian_).block<6, 7>(0, 0).transpose(), &jacobian_transpose_pinv);
     Eigen::VectorXd tau_task(this->n_joints_), tau_nullspace(this->n_joints_), tau_ext(this->n_joints_);
 
+    std::cout <<"calculate torques 2"<< std::endl;
+    std::cout <<"jacobian"<< (this->jacobian_).block<6, 7>(0, 0) << std::endl;
     // Torque calculated for Cartesian impedance control with respect to a Cartesian pose reference in the end, in the frame of the EE of the robot.
-    tau_task << this->jacobian_.transpose() * (-this->cartesian_stiffness_ * this->error_ - this->cartesian_damping_ * (this->jacobian_ * this->dq_));
+    tau_task << (this->jacobian_).block<6, 7>(0, 0).transpose() * (-this->cartesian_stiffness_ * this->error_ - this->cartesian_damping_ * ((this->jacobian_).block<6, 7>(0, 0) * this->dq_));
+    std::cout <<"calculate torques 3"<< std::endl;
     // Torque for joint impedance control with respect to a desired configuration and projected in the null-space of the robot's Jacobian, so it should not affect the Cartesian motion of the robot's end-effector.
-    tau_nullspace << (Eigen::MatrixXd::Identity(7, 7) - this->jacobian_.transpose() * jacobian_transpose_pinv) *
+    tau_nullspace << (Eigen::MatrixXd::Identity(7, 7) - (this->jacobian_).block<6, 7>(0, 0).transpose() * jacobian_transpose_pinv) *
                          (this->nullspace_stiffness_ * (this->q_d_nullspace_ - this->q_) - this->nullspace_damping_ * this->dq_);
+    std::cout <<"calculate torques 4"<< std::endl;
     // Torque to achieve the desired external force command in the frame of the EE of the robot.
-    tau_ext = this->jacobian_.transpose() * this->cartesian_wrench_;
-
+    tau_ext = (this->jacobian_).block<6, 7>(0, 0).transpose() * this->cartesian_wrench_;
+    std::cout <<"calculate torques 5"<< std::endl;
     // Torque commanded to the joints of the robot is composed by the superposition of these three joint-torque signals:
     Eigen::VectorXd tau_d = tau_task + tau_nullspace + tau_ext;
     saturateTorqueRate(tau_d, &this->tau_c_, this->delta_tau_max_);
+    
+    std::cout <<"calculate torques end"<< std::endl;
     return this->tau_c_;
   }
 
@@ -407,24 +413,29 @@ namespace my_controller
 
   controller_interface::CallbackReturn MyController::on_init()
   {
-    const std::string urdf_filename = "/home/aidara/ros2_ws/src/my_controller/controller/urdf/panda.urdf";
+    std::cout <<"init start"<< std::endl;
+    const std::string urdf_filename = "/home/pavi/ros2_ws/src/my_controller/controller/urdf/panda.urdf";
     pinocchio::urdf::buildModel(urdf_filename, this->model_);
+
     // should have error handling
     joint_names_ = auto_declare<std::vector<std::string>>("joints", joint_names_);
-    command_interface_types_ =
-        auto_declare<std::vector<std::string>>("command_interfaces", command_interface_types_);
-    state_interface_types_ =
-        auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
 
+    command_interface_types_ = auto_declare<std::vector<std::string>>("command_interfaces", command_interface_types_);
+   
+    state_interface_types_ = auto_declare<std::vector<std::string>>("state_interfaces", state_interface_types_);
+    
     point_interp_.positions.assign(joint_names_.size(), 0);
     point_interp_.velocities.assign(joint_names_.size(), 0);
-
+    point_interp_.effort.assign(joint_names_.size(), 0); //Why?
+    setNumberOfJoints(joint_names_.size());
+    std::cout <<"init end"<< std::endl;
     return CallbackReturn::SUCCESS;
   }
 
   controller_interface::InterfaceConfiguration MyController::command_interface_configuration()
       const
   {
+    std::cout <<"command configure start"<< std::endl;
     controller_interface::InterfaceConfiguration conf = {config_type::INDIVIDUAL, {}};
 
     conf.names.reserve(joint_names_.size() * command_interface_types_.size());
@@ -435,12 +446,13 @@ namespace my_controller
         conf.names.push_back(joint_name + "/" + interface_type);
       }
     }
-
+    std::cout <<"command configure end"<< std::endl;
     return conf;
   }
 
   controller_interface::InterfaceConfiguration MyController::state_interface_configuration() const
   {
+    std::cout <<"state configure start"<< std::endl;
     controller_interface::InterfaceConfiguration conf = {config_type::INDIVIDUAL, {}};
 
     conf.names.reserve(joint_names_.size() * state_interface_types_.size());
@@ -451,45 +463,50 @@ namespace my_controller
         conf.names.push_back(joint_name + "/" + interface_type);
       }
     }
-
+    std::cout <<"state configure end"<< std::endl;
     return conf;
   }
 
   controller_interface::CallbackReturn MyController::on_configure(const rclcpp_lifecycle::State &)
   {
+    std::cout <<"configure start"<< std::endl;
     auto callback =
         [this](const std::shared_ptr<trajectory_msgs::msg::JointTrajectory> traj_msg) -> void
     {
       traj_msg_external_point_ptr_.writeFromNonRT(traj_msg);
       new_msg_ = true;
     };
-
+    std::cout <<"configure end"<< std::endl;
     return CallbackReturn::SUCCESS;
   }
 
   controller_interface::CallbackReturn MyController::on_activate(const rclcpp_lifecycle::State &)
   {
+    std::cout <<"activation start"<< std::endl;
     // clear out vectors in case of restart
     joint_effort_command_interface_.clear();
     joint_position_state_interface_.clear();
     joint_velocity_state_interface_.clear();
+
+    
 
     // assign command interfaces
     for (auto &interface : command_interfaces_)
     {
       command_interface_map_[interface.get_interface_name()]->push_back(interface);
     }
-
+    
     // assign state interfaces
     for (auto &interface : state_interfaces_)
     {
       state_interface_map_[interface.get_interface_name()]->push_back(interface);
     }
-
+    
     trajectory_service_ =
         get_node()->create_service<my_controller_interface::srv::MyController>(
             "~/joint_trajectory", std::bind(&MyController::initTrajectory, this, std::placeholders::_1, std::placeholders::_2));
 
+    std::cout <<"activation end"<< std::endl;
     return CallbackReturn::SUCCESS;
   }
 
@@ -526,20 +543,24 @@ namespace my_controller
   controller_interface::return_type MyController::update(
       const rclcpp::Time &time, const rclcpp::Duration & /*period*/)
   {
+    std::cout <<"update start"<< std::endl;
     if (this->traj_running_)
     {
       trajUpdate();
     }
 
+    std::cout <<"update 1"<< std::endl;
     this->updateState();
-
+    std::cout <<"update 2"<< std::endl;
     // Apply control law in base library
     this->calculateCommandedTorques();
-
+    std::cout <<"update 3"<< std::endl;
     // Write commands
     for (size_t i = 0; i < joint_effort_command_interface_.size(); i++)
     {
+      std::cout <<"update 4"<< std::endl;
       joint_effort_command_interface_[i].get().set_value(this->tau_c_(i));
+      std::cout <<"update 5"<< std::endl;
     }
 
     // if (new_msg_)
@@ -561,6 +582,7 @@ namespace my_controller
     //     joint_velocity_command_interface_[i].get().set_value(point_interp_.velocities[i]);
     //   }
     // }
+    std::cout <<"update end"<< std::endl;
     return controller_interface::return_type::OK;
   }
 
@@ -619,17 +641,25 @@ namespace my_controller
   bool MyController::getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position,
                            Eigen::Quaterniond *orientation) const
   {
+    std::cout <<"fK start"<< std::endl;
     using namespace pinocchio;
 
+    //Baustelle diese, mies hässlich (wie deine mom)
+    Eigen::VectorXd q_ext = Eigen::VectorXd::Zero(9);
+    
+    for(unsigned int i = 0; i<7;++i){
+      q_ext[i] = q[i];
+    }
     // Create data required by the algorithms
     Data data(model_);
     // Perform the forward kinematics over the kinematic tree
-    forwardKinematics(model_, data, q);
+    forwardKinematics(model_, data, q_ext);
+    std::cout <<"fK 1"<< std::endl;
     updateFramePlacements(model_, data);
     int frame_id = model_.getFrameId("panda_hand");
     *position = data.oMf[frame_id].translation();
     *orientation = Eigen::Quaterniond(data.oMf[frame_id].rotation());
-
+    std::cout <<"fK Done"<< std::endl;
     return true;
   }
 
@@ -643,25 +673,32 @@ namespace my_controller
 
   void MyController::updateState()
   {
-
+    std::cout <<"update state start"<< std::endl;
     for (size_t i = 0; i < joint_names_.size(); i++)
-    {
+    { 
+      
       q_[i] = joint_position_state_interface_[i].get().get_value();
       dq_[i] = joint_velocity_state_interface_[i].get().get_value();
       tau_m_[i] = joint_effort_state_interface_[i].get().get_value();
+
     }
+    std::cout <<"update state 1"<< std::endl;
     getJacobian(this->q_, &this->jacobian_);
+    std::cout <<"update state 2"<< std::endl;
     getFk(this->q_, &this->position_, &this->orientation_);
+    std::cout <<"update state end"<< std::endl;
   }
 
   bool MyController::getJacobian(const Eigen::VectorXd &q,
                                  Eigen::MatrixXd *jacobian)
   {
+    std::cout <<"getJacobian start"<< std::endl;
     using namespace pinocchio;
 
     Data data(model_);
-    forwardKinematics(model_, data, q);
+    //forwardKinematics(model_, data, q); //Why?
     *jacobian = computeJointJacobians(model_, data);
+    std::cout <<"getJacobian end"<< std::endl;
     return true;
   }
 

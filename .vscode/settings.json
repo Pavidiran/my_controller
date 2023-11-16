@@ -72,6 +72,29 @@
     "cinttypes": "cpp",
     "typeindex": "cpp",
     "typeinfo": "cpp",
-    "variant": "cpp"
-  }
+    "variant": "cpp",
+    "any": "cpp",
+    "regex": "cpp"
+  },
+  "python.autoComplete.extraPaths": [
+    "/home/pavi/ros2_ws/install/zed_topic_benchmark_interfaces/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/zed_interfaces/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/py_srvcli/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/moveit_task_constructor_msgs/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/grasping_interface/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/franka_gripper/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/franka_msgs/lib/python3.10/site-packages",
+    "/opt/ros/iron/lib/python3.10/site-packages"
+  ],
+  "python.analysis.extraPaths": [
+    "/home/pavi/ros2_ws/install/zed_topic_benchmark_interfaces/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/zed_interfaces/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/py_srvcli/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/moveit_task_constructor_msgs/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/grasping_interface/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/franka_gripper/lib/python3.10/site-packages",
+    "/home/pavi/ros2_ws/install/franka_msgs/lib/python3.10/site-packages",
+    "/opt/ros/iron/lib/python3.10/site-packages"
+  ],
+  "cmake.configureOnOpen": false
 }
