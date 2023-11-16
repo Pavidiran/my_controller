@@ -18,10 +18,17 @@
 #include "pinocchio/multibody/fwd.hpp"
 #include "my_controller_interface/srv/my_controller.hpp"
 
+#include "controller_interface/helpers.hpp"
+#include "hardware_interface/loaned_state_interface.hpp"
 #include "control_msgs/action/follow_joint_trajectory.hpp"
 #include "control_msgs/msg/joint_trajectory_controller_state.hpp"
 #include "controller_interface/controller_interface.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
+#include "hardware_interface/types/hardware_interface_return_values.hpp"
+#include "hardware_interface/handle.hpp"
+#include "hardware_interface/hardware_info.hpp"
+#include "hardware_interface/system_interface.hpp"
+
 #include "rclcpp/duration.hpp"
 #include "rclcpp/subscription.hpp"
 #include "rclcpp/time.hpp"
@@ -279,6 +286,7 @@ namespace my_controller
             const rclcpp_lifecycle::State &previous_state) override;
 
     protected:
+        
         size_t n_joints_{7}; //!< Number of joints to control
 
         Eigen::Matrix<double, 6, 6> cartesian_stiffness_{Eigen::Matrix<double, 6, 6>::Identity()}; //!< Cartesian stiffness matrix

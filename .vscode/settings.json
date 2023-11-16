@@ -74,7 +74,9 @@
     "typeinfo": "cpp",
     "variant": "cpp",
     "any": "cpp",
-    "regex": "cpp"
+    "regex": "cpp",
+    "core": "cpp",
+    "specialfunctions": "cpp"
   },
   "python.autoComplete.extraPaths": [
     "/home/pavi/ros2_ws/install/zed_topic_benchmark_interfaces/lib/python3.10/site-packages",
