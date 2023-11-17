@@ -284,6 +284,12 @@ namespace my_controller
         CONTROLLER_INTERFACE_PUBLIC
         controller_interface::CallbackReturn on_shutdown(
             const rclcpp_lifecycle::State &previous_state) override;
+        
+        pinocchio::Data data_;
+        
+        pinocchio::Model model_; // model of the robot
+        
+
 
     protected:
         
@@ -335,8 +341,7 @@ namespace my_controller
 
         // Trajectory
 
-        pinocchio::Model model_; // model of the robot
-
+       
         bool traj_running_{false};                         //!< True when running a trajectory
         trajectory_msgs::msg::JointTrajectory trajectory_; //!< Currently played trajectory
         unsigned int traj_index_{0};                       //!< Index of the current trajectory point
@@ -426,7 +431,7 @@ namespace my_controller
          * \param[out] orientation  End-effector orientation
          * \return Always true.
          */
-        bool getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position, Eigen::Quaterniond *rotation) const;
+        bool getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position, Eigen::Quaterniond *rotation); //const removed 
 
         /*! \brief Get Jacobian from RBDyn
          *

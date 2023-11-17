@@ -431,7 +431,8 @@ namespace my_controller
   {
     const std::string urdf_filename = "/home/pavi/ros2_ws/src/my_controller/controller/urdf/panda.urdf";
     pinocchio::urdf::buildModel(urdf_filename, this->model_);
-
+    pinocchio::Data data(this->model_);
+    this->data_ = data;
     // should have error handling
     joint_names_ = auto_declare<std::vector<std::string>>("joints", joint_names_);
 
@@ -621,7 +622,7 @@ namespace my_controller
   }
 
   bool MyController::getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position,
-                           Eigen::Quaterniond *orientation) const
+                           Eigen::Quaterniond *orientation)
   {
 
     using namespace pinocchio;
@@ -632,14 +633,14 @@ namespace my_controller
     for(unsigned int i = 0; i<7;++i){
       q_ext[i] = q[i];
     }
-    // Create data required by the algorithms
-    Data data(model_);
-    // Perform the forward kinematics over the kinematic tree
-    forwardKinematics(model_, data, q_ext);
-    updateFramePlacements(model_, data);
-    int frame_id = model_.getFrameId("panda_hand");
-    *position = data.oMf[frame_id].translation();
-    *orientation = Eigen::Quaterniond(data.oMf[frame_id].rotation());
+    // // Create data required by the algorithms
+    
+    // // Perform the forward kinematics over the kinematic tree
+    pinocchio::forwardKinematics(model_, data_, q_ext);
+    //updateFramePlacements(model_, data_);
+    // int frame_id = model_.getFrameId("panda_hand");
+    // *position = data.oMf[frame_id].translation();
+    // *orientation = Eigen::Quaterniond(data.oMf[frame_id].rotation());
     return true;
   }
 
@@ -658,10 +659,9 @@ namespace my_controller
       
       q_[i] = joint_position_state_interface_.at(i).get().get_value();
       dq_[i] = joint_velocity_state_interface_.at(i).get().get_value();
-      tau_m_[i] = joint_effort_state_interface_.at(i).get().get_value();
-
+      tau_m_[i] = joint_effort_state_interface_.at(i).get().get_value();  
     }
-    getJacobian(this->q_, &this->jacobian_);
+    //getJacobian(this->q_, &this->jacobian_);
     getFk(this->q_, &this->position_, &this->orientation_);
   }
 
@@ -671,7 +671,7 @@ namespace my_controller
     using namespace pinocchio;
 
     Data data(model_);
-    //forwardKinematics(model_, data, q); //Why?
+    forwardKinematics(model_, data, q); //Why?
     *jacobian = computeJointJacobians(model_, data);
     return true;
   }
