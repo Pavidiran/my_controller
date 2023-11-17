@@ -637,8 +637,8 @@ namespace my_controller
     
     // // Perform the forward kinematics over the kinematic tree
     pinocchio::forwardKinematics(model_, data_, q_ext);
-    //updateFramePlacements(model_, data_);
-    // int frame_id = model_.getFrameId("panda_hand");
+    //pinocchio::updateFramePlacements(model_, data_);
+    
     // *position = data.oMf[frame_id].translation();
     // *orientation = Eigen::Quaterniond(data.oMf[frame_id].rotation());
     return true;
@@ -661,18 +661,19 @@ namespace my_controller
       dq_[i] = joint_velocity_state_interface_.at(i).get().get_value();
       tau_m_[i] = joint_effort_state_interface_.at(i).get().get_value();  
     }
-    //getJacobian(this->q_, &this->jacobian_);
-    getFk(this->q_, &this->position_, &this->orientation_);
+    // std::cout<<this->q_<<std::endl;
+
+    getJacobian();
+    //getFk(this->q_, &this->position_, &this->orientation_);
   }
 
-  bool MyController::getJacobian(const Eigen::VectorXd &q,
-                                 Eigen::MatrixXd *jacobian)
+  bool MyController::getJacobian()
   {
     using namespace pinocchio;
 
-    Data data(model_);
-    forwardKinematics(model_, data, q); //Why?
-    *jacobian = computeJointJacobians(model_, data);
+    //forwardKinematics(model_, data_, q); //Why?
+    jacobian_ = computeJointJacobians(model_, data_);
+    std::cout<<this->jacobian_<<std::endl;
     return true;
   }
 

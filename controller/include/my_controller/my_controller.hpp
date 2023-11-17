@@ -441,6 +441,6 @@ namespace my_controller
          * \param[out] jacobian  Calculated Jacobian
          * \return True on success, false on failure.
          */
-        bool getJacobian(const Eigen::VectorXd &q, Eigen::MatrixXd *jacobian);
+        bool getJacobian();
     };
 } // namespace my_controller
