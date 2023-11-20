@@ -265,39 +265,43 @@ namespace my_controller
     this->error_.tail(3) << calculateOrientationError(this->orientation_d_, this->orientation_);
     // Kinematic pseuoinverse
     Eigen::MatrixXd jacobian_transpose_pinv;
-    pseudoInverse((this->jacobian_).block<6, 7>(0, 0).transpose(), &jacobian_transpose_pinv);
+    pseudoInverse(this->jacobian_.transpose(), &jacobian_transpose_pinv);
     Eigen::VectorXd tau_task(this->n_joints_), tau_nullspace(this->n_joints_), tau_ext(this->n_joints_);
 
     // std::cout << "jacobian" << (this->jacobian_).block<6, 7>(0, 0) << std::endl;
 
     // Torque calculated for Cartesian impedance control with respect to a Cartesian pose reference in the end, in the frame of the EE of the robot.
-    tau_task << (this->jacobian_).block<6, 7>(0, 0).transpose() * (-this->cartesian_stiffness_ * this->error_ - this->cartesian_damping_ * ((this->jacobian_).block<6, 7>(0, 0) * this->dq_));
+    tau_task << this->jacobian_.transpose() * (-this->cartesian_stiffness_ * this->error_ - this->cartesian_damping_ * (this->jacobian_ * this->dq_));
 
     // Torque for joint impedance control with respect to a desired configuration and projected in the null-space of the robot's Jacobian, so it should not affect the Cartesian motion of the robot's end-effector.
-    tau_nullspace << (Eigen::MatrixXd::Identity(7, 7) - (this->jacobian_).block<6, 7>(0, 0).transpose() * jacobian_transpose_pinv) *
+    tau_nullspace << (Eigen::MatrixXd::Identity(7, 7) - this->jacobian_.transpose() * jacobian_transpose_pinv) *
                          (this->nullspace_stiffness_ * (this->q_d_nullspace_ - this->q_) - this->nullspace_damping_ * this->dq_);
 
     // Torque to achieve the desired external force command in the frame of the EE of the robot.
-    tau_ext = (this->jacobian_).block<6, 7>(0, 0).transpose() * this->cartesian_wrench_;
+    tau_ext = this->jacobian_.transpose() * this->cartesian_wrench_;
 
     // Torque commanded to the joints of the robot is composed by the superposition of these three joint-torque signals:
     Eigen::VectorXd tau_d = tau_task + tau_nullspace + tau_ext;
-    // saturateTorqueRate(tau_d, &this->tau_c_, this->delta_tau_max_);
-    /*
-    std::cout <<"tau_c\n"<< std::endl;
-    std::cout <<tau_c_<< std::endl;
-    std::cout <<"tau_task\n"<< std::endl;
-    std::cout <<tau_task<< std::endl;
-    std::cout <<"tau_nullspace\n"<< std::endl;
-    std::cout <<tau_nullspace<< std::endl;
-    std::cout <<"tau_ext\n"<< std::endl;
-    std::cout <<tau_ext<< std::endl;
-    std::cout <<"tau_d"<< std::endl;
-    std::cout <<tau_d<< std::endl;
-    std::cout <<"tau_m"<< std::endl;
-    std::cout <<this->tau_m_<< std::endl;
-    std::cout <<"calculate torques end"<< std::endl;
-    */
+    saturateTorqueRate(tau_d, &this->tau_c_, this->delta_tau_max_);
+
+    // std::cout << "tau_c\n"
+    //           << std::endl;
+    // std::cout << tau_c_ << std::endl;
+    // std::cout << "tau_task\n"
+    //           << std::endl;
+    // std::cout << tau_task << std::endl;
+    // std::cout << "tau_nullspace\n"
+    //           << std::endl;
+    // std::cout << tau_nullspace << std::endl;
+    // std::cout << "tau_ext\n"
+    //           << std::endl;
+    // std::cout << tau_ext << std::endl;
+    // std::cout << "tau_d" << std::endl;
+    // std::cout << tau_d << std::endl;
+    // std::cout << "tau_m" << std::endl;
+    // std::cout << this->tau_m_ << std::endl;
+    // std::cout << "calculate torques end" << std::endl;
+
     Eigen::VectorXd tau_test(7);
     tau_test << 0, 0, 0, 0, 0, 0, 0;
     this->tau_c_ = tau_test;
@@ -429,7 +433,7 @@ namespace my_controller
 
   controller_interface::CallbackReturn MyController::on_init()
   {
-    const std::string urdf_filename = "/home/pavi/ros2_ws/src/my_controller/controller/urdf/panda.urdf";
+    const std::string urdf_filename = "/home/aidara/ros2_ws/src/my_controller/controller/urdf/panda.urdf";
     pinocchio::urdf::buildModel(urdf_filename, this->model_);
     pinocchio::Data data(this->model_);
     this->data_ = data;
@@ -508,9 +512,9 @@ namespace my_controller
       state_interface_map_[interface.get_interface_name()]->push_back(interface);
     }
 
-    // trajectory_service_ =
-    //     get_node()->create_service<my_controller_interface::srv::MyController>(
-    //         "~/joint_trajectory", std::bind(&MyController::initTrajectory, this, std::placeholders::_1, std::placeholders::_2));
+    trajectory_service_ =
+        get_node()->create_service<my_controller_interface::srv::MyController>(
+            "~/joint_trajectory", std::bind(&MyController::initTrajectory, this, std::placeholders::_1, std::placeholders::_2));
 
     return CallbackReturn::SUCCESS;
   }
@@ -531,38 +535,24 @@ namespace my_controller
     }
   }
 
-  void interpolate_trajectory_point(
-      const trajectory_msgs::msg::JointTrajectory &traj_msg, const rclcpp::Duration &cur_time,
-      trajectory_msgs::msg::JointTrajectoryPoint &point_interp)
-  {
-    double traj_len = traj_msg.points.size();
-    auto last_time = traj_msg.points[traj_len - 1].time_from_start;
-    double total_time = last_time.sec + last_time.nanosec * 1E-9;
-
-    size_t ind = cur_time.seconds() * (traj_len / total_time);
-    ind = std::min(static_cast<double>(ind), traj_len - 2);
-    double delta = cur_time.seconds() - ind * (total_time / traj_len);
-    interpolate_point(traj_msg.points[ind], traj_msg.points[ind + 1], point_interp, delta);
-  }
-
   controller_interface::return_type MyController::update(
       const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
   {
-    // if (this->traj_running_)
-    // {
-    //   trajUpdate();
-    // }
-
-    // updateState();
+    // auto start = std::chrono::system_clock::now();
+    updateState();
+    if (this->traj_running_)
+    {
+      trajUpdate();
+    }
     // Apply control law in base library
-    // this->calculateCommandedTorques();
+    this->calculateCommandedTorques();
     for (size_t i = 0; i < joint_effort_command_interface_.size(); i++)
     {
-      joint_effort_command_interface_[i].get().set_value(0);
+      joint_effort_command_interface_[i].get().set_value(tau_c_[i]);
     }
-    // auto timestamp = std::chrono::high_resolution_clock::now();
-    // std::cout << "Command sent at: " << std::chrono::duration_cast<std::chrono::milliseconds>(timestamp.time_since_epoch()).count() << " milliseconds\n";
-    // std::cout <<"update end"<< std::endl;
+    // auto end = std::chrono::system_clock::now();
+    // auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    // std::cout << "Command sent at: " << elapsed.count() << " microseconds\n";
     return controller_interface::return_type::OK;
   }
 
@@ -595,14 +585,11 @@ namespace my_controller
     if (position_d_error.norm() <= 0.01)
     {
       this->traj_index_++;
-      // Get end effector pose
-      Eigen::VectorXd q = Eigen::VectorXd::Map(trajectory_.points.at(this->traj_index_).positions.data(),
-                                               trajectory_.points.at(this->traj_index_).positions.size());
-      getFk(q, &this->position_d_target_, &this->orientation_d_target_);
-      this->setNullspaceConfig(q);
+      this->setNullspaceConfig(q_);
     }
     if (this->traj_index_ > this->trajectory_.points.size())
     {
+      std::cout << "Trajectory completed!" << std::endl;
       this->traj_running_ = false;
     }
     // Update end-effector pose and nullspace
@@ -621,26 +608,33 @@ namespace my_controller
   bool MyController::getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position,
                            Eigen::Quaterniond *orientation)
   {
-
-    using namespace pinocchio;
-
     // // Create data required by the algorithms
 
     // // Perform the forward kinematics over the kinematic tree
     pinocchio::forwardKinematics(model_, data_, q_);
     pinocchio::updateFramePlacements(model_, data_);
-
-    // *position = data.oMf[frame_id].translation();
-    // *orientation = Eigen::Quaterniond(data.oMf[frame_id].rotation());
+    const std::string frame_name = "panda_hand";
+    pinocchio::FrameIndex frame_id = model_.getFrameId(frame_name);
+    *position = data_.oMf[frame_id].translation();
+    *orientation = Eigen::Quaterniond(data_.oMf[frame_id].rotation());
     return true;
   }
 
   void MyController::initTrajectory(const std::shared_ptr<my_controller_interface::srv::MyController::Request> request,
                                     std::shared_ptr<my_controller_interface::srv::MyController::Response> response)
   {
+    const auto logger = get_node()->get_logger();
+    RCLCPP_INFO(logger, "Got trajectory msg from trajectory topic.");
     // error handeling needed, maybe transfer to action server
-    trajectory_ = request->trajectory;
     response->success = true;
+    if (get_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+    {
+      RCLCPP_ERROR(logger, "Can't sample trajectory. Controller is not active.");
+      response->success = false;
+      return;
+    }
+    trajStart(request->trajectory);
+    return;
   }
 
   void MyController::updateState()
@@ -669,6 +663,18 @@ namespace my_controller
     return true;
   }
 
+  void MyController::trajStart(const trajectory_msgs::msg::JointTrajectory trajectory)
+  {
+    // this->traj_duration_ = trajectory.points[trajectory.points.size() - 1].time_from_start;
+    this->trajectory_ = trajectory;
+    this->traj_running_ = true;
+    this->traj_index_ = 0;
+    this->trajUpdate();
+    // if (nullspace_stiffness_ < 5.)
+    // {
+    //   RCLCPP_WARN("Nullspace stiffness is low. The joints might not follow the planned path.");
+    // }
+  }
 } // namespace ros2_control_demo_example_7
 
 #include "pluginlib/class_list_macros.hpp"

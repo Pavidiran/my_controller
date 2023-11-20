@@ -225,14 +225,6 @@ namespace my_controller
          */
         Eigen::Matrix<double, 6, 1> getPoseError() const;
 
-        /*! \brief Updates the trajectory.
-         *
-         * Called periodically from the update function if a trajectory is running.
-         * A trajectory is run by going through it point by point, calculating forward kinematics and applying
-         * the joint configuration to the nullspace control.
-         */
-        void trajUpdate();
-
         /*! \brief Updates the state based on the joint handles.
          *
          * Gets latest joint positions, velocities and efforts and updates the forward kinematics as well as the Jacobian.
@@ -284,15 +276,11 @@ namespace my_controller
         CONTROLLER_INTERFACE_PUBLIC
         controller_interface::CallbackReturn on_shutdown(
             const rclcpp_lifecycle::State &previous_state) override;
-        
-        pinocchio::Data data_;
-        
-        pinocchio::Model model_; // model of the robot
-        
 
+        pinocchio::Data data_;
+        pinocchio::Model model_; // model of the robot
 
     protected:
-        
         size_t n_joints_{7}; //!< Number of joints to control
 
         Eigen::Matrix<double, 6, 6> cartesian_stiffness_{Eigen::Matrix<double, 6, 6>::Identity()}; //!< Cartesian stiffness matrix
@@ -339,9 +327,6 @@ namespace my_controller
 
         double delta_tau_max_{1.0}; //!< Maximum allowed torque change per time step
 
-        // Trajectory
-
-       
         bool traj_running_{false};                         //!< True when running a trajectory
         trajectory_msgs::msg::JointTrajectory trajectory_; //!< Currently played trajectory
         unsigned int traj_index_{0};                       //!< Index of the current trajectory point
@@ -354,7 +339,7 @@ namespace my_controller
         realtime_tools::RealtimeBuffer<std::shared_ptr<trajectory_msgs::msg::JointTrajectory>>
             traj_msg_external_point_ptr_;
         bool new_msg_ = false;
-        rclcpp::Time start_time_;
+        // rclcpp::Time start_time_;
         std::shared_ptr<trajectory_msgs::msg::JointTrajectory> trajectory_msg_;
         trajectory_msgs::msg::JointTrajectoryPoint point_interp_;
 
@@ -431,7 +416,7 @@ namespace my_controller
          * \param[out] orientation  End-effector orientation
          * \return Always true.
          */
-        bool getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position, Eigen::Quaterniond *rotation); //const removed 
+        bool getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position, Eigen::Quaterniond *rotation); // const removed
 
         /*! \brief Get Jacobian from RBDyn
          *
@@ -442,5 +427,20 @@ namespace my_controller
          * \return True on success, false on failure.
          */
         bool getJacobian();
+
+        /*! \brief Callback for a joint trajectory message.
+         *
+         * Preempts the action server if that one has a running goal.
+         * \param[in] msg  Joint Trajectory Message
+         */
+        void trajStart(const trajectory_msgs::msg::JointTrajectory trajectory);
+
+        /*! \brief Updates the trajectory.
+         *
+         * Called periodically from the update function if a trajectory is running.
+         * A trajectory is run by going through it point by point, calculating forward kinematics and applying
+         * the joint configuration to the nullspace control.
+         */
+        void trajUpdate();
     };
 } // namespace my_controller
