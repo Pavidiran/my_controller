@@ -39,6 +39,8 @@
 #include "trajectory_msgs/msg/joint_trajectory.hpp"
 #include "trajectory_msgs/msg/joint_trajectory_point.hpp"
 
+#include "franka_semantic_components/franka_robot_model.hpp"
+
 namespace my_controller
 {
     class MyController : public controller_interface::ControllerInterface
@@ -363,6 +365,14 @@ namespace my_controller
                 {"position", &joint_position_state_interface_},
                 {"velocity", &joint_velocity_state_interface_},
                 {"effort", &joint_effort_state_interface_}};
+
+        // franka stuff
+
+        std::string arm_id_{"panda"};
+        std::unique_ptr<franka_semantic_components::FrankaRobotModel> franka_robot_model_;
+
+        const std::string k_robot_state_interface_name{"robot_state"};
+        const std::string k_robot_model_interface_name{"robot_model"};
 
     private:
         /*! \brief Implements the damping based on a stiffness

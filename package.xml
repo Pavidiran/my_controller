@@ -21,7 +21,8 @@
   <depend>trajectory_msgs</depend>
   <depend>pinocchio</depend>
   <depend>my_controller_interface</depend>
-
+  <depend>franka_semantic_components</depend>
+  
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>joint_state_publisher_gui</exec_depend>

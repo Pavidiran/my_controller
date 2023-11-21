@@ -17,6 +17,7 @@ set(CONTROLLER_INCLUDE_DEPENDS
   trajectory_msgs
   pinocchio
   my_controller_interface
+  franka_semantic_components
 )
 
 # find dependencies
@@ -47,6 +48,7 @@ $<INSTALL_INTERFACE:include/my_controller>
 )
 ament_target_dependencies(
   my_controller PUBLIC
+  franka_semantic_components
   ${CONTROLLER_INCLUDE_DEPENDS}
 )
 

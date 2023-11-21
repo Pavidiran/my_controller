@@ -14,8 +14,6 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 
-#include <franka_example_controllers/model_example_controller.hpp>
-
 #include "hardware_interface/types/hardware_interface_return_values.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 
@@ -26,7 +24,7 @@ namespace my_controller
   MyController::MyController() : controller_interface::ControllerInterface()
   {
 
-    this->setStiffness(200., 200., 200., 20., 20., 20., 0.);
+    this->setStiffness(20., 20., 20., 2., 2., 2., 0.); // war mal 10
     this->cartesian_stiffness_ = this->cartesian_stiffness_target_;
     this->cartesian_damping_ = this->cartesian_damping_target_;
   }
@@ -254,7 +252,6 @@ namespace my_controller
   //   this->position_ << position;
   //   this->orientation_.coeffs() << orientation.coeffs();
   //   this->jacobian_ << jacobian;
-
   //   return this->calculateCommandedTorques();
   // }
 
@@ -284,7 +281,7 @@ namespace my_controller
     tau_ext = this->jacobian_.transpose() * this->cartesian_wrench_;
 
     // Torque commanded to the joints of the robot is composed by the superposition of these three joint-torque signals:
-    Eigen::VectorXd tau_d = tau_task; //+ tau_nullspace + tau_ext
+    Eigen::VectorXd tau_d = tau_task + tau_nullspace; //+ tau_ext
     saturateTorqueRate(tau_d, &this->tau_c_, this->delta_tau_max_);
 
     // std::cout << "tau_c\n"
@@ -486,6 +483,10 @@ namespace my_controller
         conf.names.push_back(joint_name + "/" + interface_type);
       }
     }
+    for (const auto &franka_robot_model_name : franka_robot_model_->get_state_interface_names())
+    {
+      conf.names.push_back(franka_robot_model_name);
+    }
     return conf;
   }
 
@@ -497,6 +498,11 @@ namespace my_controller
       traj_msg_external_point_ptr_.writeFromNonRT(traj_msg);
       new_msg_ = true;
     };
+
+    franka_robot_model_ = std::make_unique<franka_semantic_components::FrankaRobotModel>(
+        franka_semantic_components::FrankaRobotModel(arm_id_ + "/" + k_robot_model_interface_name,
+                                                     arm_id_ + "/" + k_robot_state_interface_name));
+
     return CallbackReturn::SUCCESS;
   }
 
@@ -514,10 +520,14 @@ namespace my_controller
     }
 
     // assign state interfaces
-    for (auto &interface : state_interfaces_)
+    auto it = state_interfaces_.begin();
+    for (int i = 0; i < 21 && it != state_interfaces_.end(); ++i, ++it)
     {
+      auto &interface = *it;
       state_interface_map_[interface.get_interface_name()]->push_back(interface);
     }
+
+    franka_robot_model_->assign_loaned_state_interfaces(state_interfaces_);
 
     trajectory_service_ =
         get_node()->create_service<my_controller_interface::srv::MyController>(
@@ -527,6 +537,9 @@ namespace my_controller
     this->updateState();
 
     // Set reference pose to current pose and q_d_nullspace
+    Eigen::Vector3d test;
+    test << 0.5, 0, 0.5;
+
     this->initDesiredPose(this->position_, this->orientation_);
     this->initNullspaceConfig(this->q_);
 
@@ -549,7 +562,7 @@ namespace my_controller
     this->calculateCommandedTorques();
     for (size_t i = 0; i < joint_effort_command_interface_.size(); i++)
     {
-      joint_effort_command_interface_[i].get().set_value(tau_c_[i]);
+      joint_effort_command_interface_[i].get().set_value(this->tau_c_[i]);
     }
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -648,15 +661,24 @@ namespace my_controller
       tau_m_[i] = joint_effort_state_interface_.at(i).get().get_value();
     }
 
-    getFk(&this->position_, &this->orientation_);
     getJacobian();
+    getFk(&this->position_, &this->orientation_);
     //
   }
 
   bool MyController::getJacobian()
   {
+    pinocchio::forwardKinematics(model_, data_, q_);
+    std::array<double, 42> endeffector_jacobian_wrt_base = franka_robot_model_->getZeroJacobian(franka::Frame::kFlange);
+    for (int i = 0; i < jacobian_.rows(); ++i)
+    {
+      for (int j = 0; j < jacobian_.cols(); ++j)
+      {
+        jacobian_(i, j) = endeffector_jacobian_wrt_base[i * jacobian_.cols() + j];
+      }
+    }
     jacobian_ = pinocchio::computeJointJacobians(model_, data_);
-    // std::cout << jacobian_ << std::endl;
+    std::cout << jacobian_ << std::endl;
     return true;
   }
 
