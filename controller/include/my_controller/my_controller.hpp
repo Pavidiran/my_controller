@@ -281,7 +281,7 @@ namespace my_controller
         pinocchio::Model model_; // model of the robot
 
     protected:
-        size_t n_joints_{7}; //!< Number of joints to control
+        int n_joints_{7}; //!< Number of joints to control
 
         Eigen::Matrix<double, 6, 6> cartesian_stiffness_{Eigen::Matrix<double, 6, 6>::Identity()}; //!< Cartesian stiffness matrix
         Eigen::Matrix<double, 6, 6> cartesian_damping_{Eigen::Matrix<double, 6, 6>::Identity()};   //!< Cartesian damping matrix
@@ -416,7 +416,7 @@ namespace my_controller
          * \param[out] orientation  End-effector orientation
          * \return Always true.
          */
-        bool getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position, Eigen::Quaterniond *rotation); // const removed
+        bool getFk(Eigen::Vector3d *position, Eigen::Quaterniond *rotation); // const removed
 
         /*! \brief Get Jacobian from RBDyn
          *

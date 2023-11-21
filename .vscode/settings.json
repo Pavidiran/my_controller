@@ -77,7 +77,12 @@
     "regex": "cpp",
     "core": "cpp",
     "specialfunctions": "cpp",
-    "__nullptr": "cpp"
+    "__nullptr": "cpp",
+    "__hash_table": "cpp",
+    "__split_buffer": "cpp",
+    "__tree": "cpp",
+    "queue": "cpp",
+    "stack": "cpp"
   },
   "python.autoComplete.extraPaths": [
     "/home/pavi/ros2_ws/install/zed_topic_benchmark_interfaces/lib/python3.10/site-packages",
