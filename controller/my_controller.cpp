@@ -237,21 +237,21 @@ namespace my_controller
     this->cartesian_wrench_target_ = cartesian_wrench_target;
   }
 
-  Eigen::VectorXd MyController::calculateCommandedTorques(const Eigen::VectorXd &q,
-                                                          const Eigen::VectorXd &dq,
-                                                          const Eigen::Vector3d &position,
-                                                          Eigen::Quaterniond orientation,
-                                                          const Eigen::MatrixXd &jacobian)
-  {
-    // Update controller to the current robot state
-    this->q_ = q;
-    this->dq_ = dq;
-    this->position_ << position;
-    this->orientation_.coeffs() << orientation.coeffs();
-    this->jacobian_ << jacobian;
+  // Eigen::VectorXd MyController::calculateCommandedTorques(const Eigen::VectorXd &q,
+  //                                                         const Eigen::VectorXd &dq,
+  //                                                         const Eigen::Vector3d &position,
+  //                                                         Eigen::Quaterniond orientation,
+  //                                                         const Eigen::MatrixXd &jacobian)
+  // {
+  //   // Update controller to the current robot state
+  //   this->q_ = q;
+  //   this->dq_ = dq;
+  //   this->position_ << position;
+  //   this->orientation_.coeffs() << orientation.coeffs();
+  //   this->jacobian_ << jacobian;
 
-    return this->calculateCommandedTorques();
-  }
+  //   return this->calculateCommandedTorques();
+  // }
 
   Eigen::VectorXd MyController::calculateCommandedTorques()
   {
@@ -538,7 +538,7 @@ namespace my_controller
   controller_interface::return_type MyController::update(
       const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
   {
-    // auto start = std::chrono::system_clock::now();
+    auto start = std::chrono::system_clock::now();
     updateState();
     if (this->traj_running_)
     {
@@ -550,9 +550,9 @@ namespace my_controller
     {
       joint_effort_command_interface_[i].get().set_value(tau_c_[i]);
     }
-    // auto end = std::chrono::system_clock::now();
-    // auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    // std::cout << "Command sent at: " << elapsed.count() << " microseconds\n";
+    auto end = std::chrono::system_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Command sent at: " << elapsed.count() << " microseconds\n";
     return controller_interface::return_type::OK;
   }
 

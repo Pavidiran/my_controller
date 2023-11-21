@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(my_controller)
 
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-endif()
+set(CMAKE_BUILD_TYPE Release)
 
 # find dependencies
 set(REF_GEN_INCLUDE_DEPENDS

@@ -172,9 +172,9 @@ namespace my_controller
          * \param[in] orientation End-effector orientation
          * \param[in] jacobian Jacobian
          */
-        Eigen::VectorXd calculateCommandedTorques(const Eigen::VectorXd &q, const Eigen::VectorXd &dq,
-                                                  const Eigen::Vector3d &position, Eigen::Quaterniond orientation,
-                                                  const Eigen::MatrixXd &jacobian);
+        // Eigen::VectorXd calculateCommandedTorques(const Eigen::VectorXd &q, const Eigen::VectorXd &dq,
+        //                                           const Eigen::Vector3d &position, Eigen::Quaterniond orientation,
+        //                                           const Eigen::MatrixXd &jacobian);
 
         /*! \brief Get the state of the controller. Updates when "calculateCommandedTorques" is called
          *
@@ -325,7 +325,7 @@ namespace my_controller
         double filter_params_pose_{1.0};             //!< Reference pose filtering
         double filter_params_wrench_{1.0};           //!< Commanded wrench filtering
 
-        double delta_tau_max_{1.0}; //!< Maximum allowed torque change per time step
+        double delta_tau_max_{0.001}; //!< Maximum allowed torque change per time step
 
         bool traj_running_{false};                         //!< True when running a trajectory
         trajectory_msgs::msg::JointTrajectory trajectory_; //!< Currently played trajectory
