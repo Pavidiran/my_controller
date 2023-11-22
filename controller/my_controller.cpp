@@ -14,8 +14,6 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 
-#include <franka_example_controllers/model_example_controller.hpp>
-
 #include "hardware_interface/types/hardware_interface_return_values.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 
@@ -26,7 +24,7 @@ namespace my_controller
   MyController::MyController() : controller_interface::ControllerInterface()
   {
 
-    this->setStiffness(200., 200., 200., 20., 20., 20., 0.);
+    this->setStiffness(200., 200., 200., 20., 20., 20., 0.); // tuning
     this->cartesian_stiffness_ = this->cartesian_stiffness_target_;
     this->cartesian_damping_ = this->cartesian_damping_target_;
   }
@@ -267,6 +265,10 @@ namespace my_controller
     updateFilteredWrench();
     // Compute error term
     this->error_.head(3) << this->position_ - this->position_d_;
+    // std::cout << "Error:"
+    //           << "\n"
+    //           << error_ << "\n"
+    //           << std::endl;
     this->error_.tail(3) << calculateOrientationError(this->orientation_d_, this->orientation_);
     // Kinematic pseuoinverse
     Eigen::MatrixXd jacobian_transpose_pinv;
@@ -284,7 +286,7 @@ namespace my_controller
     tau_ext = this->jacobian_.transpose() * this->cartesian_wrench_;
 
     // Torque commanded to the joints of the robot is composed by the superposition of these three joint-torque signals:
-    Eigen::VectorXd tau_d = tau_task; //+ tau_nullspace + tau_ext
+    Eigen::VectorXd tau_d = tau_task + tau_nullspace + tau_ext;
     saturateTorqueRate(tau_d, &this->tau_c_, this->delta_tau_max_);
 
     // std::cout << "tau_c\n"
@@ -533,6 +535,12 @@ namespace my_controller
     std::cout << "Joint_state: " << q_ << std::endl;
     std::cout << "Position: " << position_ << std::endl;
 
+    // setting cartesian stiffness, set auto-damping
+    setStiffness(100., 100., 100., 10., 10., 10., true);
+
+    // setting cartesian damping
+    // setDampingFactors(5., 5., 5., 5., 5., 5., 1.); // tuning
+
     return CallbackReturn::SUCCESS;
   }
 
@@ -581,14 +589,6 @@ namespace my_controller
 
   void MyController::trajUpdate()
   {
-
-    Eigen::Vector3d position_d_error = (this->position_d_target_) - (this->position_d_);
-    if (position_d_error.norm() <= 0.01)
-    {
-      this->traj_index_++;
-      this->setNullspaceConfig(q_);
-    }
-    if (this->traj_index_ > this->trajectory_.points.size())
     {
       std::cout << "Trajectory completed!" << std::endl;
       this->traj_running_ = false;
@@ -647,6 +647,8 @@ namespace my_controller
       dq_[i] = joint_velocity_state_interface_.at(i).get().get_value();
       tau_m_[i] = joint_effort_state_interface_.at(i).get().get_value();
     }
+    // std::cout << dq_ << "\n"
+    //           << std::endl;
 
     getFk(&this->position_, &this->orientation_);
     getJacobian();
@@ -656,7 +658,7 @@ namespace my_controller
   bool MyController::getJacobian()
   {
     jacobian_ = pinocchio::computeJointJacobians(model_, data_);
-    // std::cout << jacobian_ << std::endl;
+    std::cout << jacobian_ << std::endl;
     return true;
   }
 
