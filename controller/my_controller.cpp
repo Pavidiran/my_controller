@@ -285,7 +285,7 @@ namespace my_controller
     // Torque commanded to the joints of the robot is composed by the superposition of these three joint-torque signals:
     Eigen::VectorXd tau_d = tau_task + tau_nullspace; //+ tau_ext
     saturateTorqueRate(tau_d, &this->tau_c_, this->delta_tau_max_);
-    std::cout << "Error: " << error_ << std::endl;
+    // std::cout << "Error: " << error_ << std::endl;
 
     // Eigen::VectorXd tau_test(7);
     // tau_test << 0, 0, 0, 0, 0, 0, 0;
@@ -516,20 +516,22 @@ namespace my_controller
 
     trajectory_service_ =
         get_node()->create_service<my_controller_interface::srv::MyController>(
-            "~/joint_trajectory", std::bind(&MyController::initTrajectory, this, std::placeholders::_1, std::placeholders::_2));
+            "my_controller/joint_trajectory", std::bind(&MyController::initTrajectory, this, std::placeholders::_1, std::placeholders::_2));
+
+    // trajectory_action_service_ =
+    //     get_node()->create_action_service<control_msgs::action::FollowJointTrajectory>(
+    //         "/my_controller/follow_joint_trajectory", std::bind(&MyController::initTrajectory, this, std::placeholders::_1, std::placeholders::_2));
 
     // get the current states
     this->updateState();
 
     // Set reference pose to current pose and q_d_nullspace
-    Eigen::Vector3d test;
-    test << 0.5, 0, 0.5;
 
     this->initDesiredPose(this->position_, this->orientation_);
     this->initNullspaceConfig(this->q_);
 
-    std::cout << "Joint_state: " << q_ << std::endl;
-    std::cout << "Position: " << position_ << std::endl;
+    // std::cout << "Joint_state: " << q_ << std::endl;
+    // std::cout << "Position: " << position_ << std::endl;
 
     setStiffness(200., 200., 200., 20., 20., 20., false);
 
@@ -588,8 +590,9 @@ namespace my_controller
     Eigen::Vector3d position_d_error = (this->position_d_target_) - (this->position_d_);
     if (position_d_error.norm() <= 0.01)
     {
-      Eigen::VectorXd q = trajectory_.points[traj_index].positions;
-      getFk(q, position_d_target_, orientation_d_target);
+      std::vector<double> positions = trajectory_.points[traj_index_].positions;
+      Eigen::VectorXd q = Eigen::Map<Eigen::VectorXd>(positions.data(), positions.size());
+      getFk(q, &this->position_d_target_, &this->orientation_d_target_);
       this->setNullspaceConfig(q_);
       this->traj_index_++;
     }
@@ -611,13 +614,13 @@ namespace my_controller
     // }
   }
 
-  bool MyController::getFk(Eigen::Vector3d *position,
+  bool MyController::getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position,
                            Eigen::Quaterniond *orientation)
   {
     // // Create data required by the algorithms
 
     // // Perform the forward kinematics over the kinematic tree
-    pinocchio::forwardKinematics(model_, data_, q_);
+    pinocchio::forwardKinematics(model_, data_, q);
     pinocchio::updateFramePlacements(model_, data_);
     pinocchio::FrameIndex frame_id = model_.getFrameId(frame_name_);
     *position = data_.oMf[frame_id].translation();
@@ -628,6 +631,7 @@ namespace my_controller
   void MyController::initTrajectory(const std::shared_ptr<my_controller_interface::srv::MyController::Request> request,
                                     std::shared_ptr<my_controller_interface::srv::MyController::Response> response)
   {
+    std::cout << "init Trajectory " << std::endl;
     const auto logger = get_node()->get_logger();
     RCLCPP_INFO(logger, "Got trajectory msg from trajectory topic.");
     // error handeling needed, maybe transfer to action server
@@ -653,7 +657,7 @@ namespace my_controller
     }
 
     getJacobian();
-    getFk(&this->position_, &this->orientation_);
+    getFk(q_, &this->position_, &this->orientation_);
 
     // std::cout << "Velocity: " << jacobian_ * dq_ << std::endl;
     // std::cout << "q_: \n " << q_ << std::endl;
@@ -680,7 +684,7 @@ namespace my_controller
     // pinocchio::computeJointJacobians(model_, data_);
     // pinocchio::framesForwardKinematics(model_, data_, q_);
     // pinocchio::getJointJacobian(model_, data_, 7, pinocchio::WORLD, jacobian_);
-    std::cout << "Jacobian:" << jacobian_ << std::endl;
+    // std::cout << "Jacobian:" << jacobian_ << std::endl;
     return true;
   }
 

@@ -427,7 +427,7 @@ namespace my_controller
          * \param[out] orientation  End-effector orientation
          * \return Always true.
          */
-        bool getFk(Eigen::Vector3d *position, Eigen::Quaterniond *rotation); // const removed
+        bool getFk(const Eigen::VectorXd &q, Eigen::Vector3d *position, Eigen::Quaterniond *rotation); // const removed
 
         /*! \brief Get Jacobian from RBDyn
          *
