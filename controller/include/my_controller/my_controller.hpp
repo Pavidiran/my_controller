@@ -283,6 +283,7 @@ namespace my_controller
         pinocchio::Model model_; // model of the robot
 
     protected:
+        const std::string frame_name_{"panda_hand"};
         int n_joints_{7}; //!< Number of joints to control
 
         Eigen::Matrix<double, 6, 6> cartesian_stiffness_{Eigen::Matrix<double, 6, 6>::Identity()}; //!< Cartesian stiffness matrix

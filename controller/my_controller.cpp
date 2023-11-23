@@ -17,6 +17,8 @@
 #include "hardware_interface/types/hardware_interface_return_values.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 
+#include <eigen3/Eigen/QR>
+
 using config_type = controller_interface::interface_configuration_type;
 
 namespace my_controller
@@ -24,7 +26,7 @@ namespace my_controller
   MyController::MyController() : controller_interface::ControllerInterface()
   {
 
-    this->setStiffness(20., 20., 20., 2., 2., 2., 0.); // war mal 10
+    this->setStiffness(200., 200., 200., 20., 20., 20., 0.); // war mal 10
     this->cartesian_stiffness_ = this->cartesian_stiffness_target_;
     this->cartesian_damping_ = this->cartesian_damping_target_;
   }
@@ -283,24 +285,7 @@ namespace my_controller
     // Torque commanded to the joints of the robot is composed by the superposition of these three joint-torque signals:
     Eigen::VectorXd tau_d = tau_task + tau_nullspace; //+ tau_ext
     saturateTorqueRate(tau_d, &this->tau_c_, this->delta_tau_max_);
-
-    // std::cout << "tau_c\n"
-    //           << std::endl;
-    // std::cout << tau_c_ << std::endl;
-    // std::cout << "tau_task\n"
-    //           << std::endl;
-    // std::cout << tau_task << std::endl;
-    // std::cout << "tau_nullspace\n"
-    //           << std::endl;
-    // std::cout << tau_nullspace << std::endl;
-    // std::cout << "tau_ext\n"
-    //           << std::endl;
-    // std::cout << tau_ext << std::endl;
-    // std::cout << "tau_d" << std::endl;
-    // std::cout << tau_d << std::endl;
-    // std::cout << "tau_m" << std::endl;
-    // std::cout << this->tau_m_ << std::endl;
-    // std::cout << "calculate torques end" << std::endl;
+    std::cout << "Error: " << error_ << std::endl;
 
     // Eigen::VectorXd tau_test(7);
     // tau_test << 0, 0, 0, 0, 0, 0, 0;
@@ -546,6 +531,11 @@ namespace my_controller
     std::cout << "Joint_state: " << q_ << std::endl;
     std::cout << "Position: " << position_ << std::endl;
 
+    setStiffness(200., 200., 200., 20., 20., 20., false);
+
+    // setting cartesian damping
+    setDampingFactors(5., 5., 5., 5., 5., 5., 1.); // tuning
+
     return CallbackReturn::SUCCESS;
   }
 
@@ -598,16 +588,18 @@ namespace my_controller
     Eigen::Vector3d position_d_error = (this->position_d_target_) - (this->position_d_);
     if (position_d_error.norm() <= 0.01)
     {
-      this->traj_index_++;
+      Eigen::VectorXd q = trajectory_.points[traj_index].positions;
+      getFk(q, position_d_target_, orientation_d_target);
       this->setNullspaceConfig(q_);
+      this->traj_index_++;
     }
     if (this->traj_index_ > this->trajectory_.points.size())
     {
       std::cout << "Trajectory completed!" << std::endl;
       this->traj_running_ = false;
     }
-    // Update end-effector pose and nullspace
 
+    // Update end-effector pose and nullspace
     // if (ros::Time::now() > (this->traj_start_ + this->traj_duration_))
     // {
     //   ROS_INFO_STREAM("Finished executing trajectory.");
@@ -627,8 +619,7 @@ namespace my_controller
     // // Perform the forward kinematics over the kinematic tree
     pinocchio::forwardKinematics(model_, data_, q_);
     pinocchio::updateFramePlacements(model_, data_);
-    const std::string frame_name = "panda_hand";
-    pinocchio::FrameIndex frame_id = model_.getFrameId(frame_name);
+    pinocchio::FrameIndex frame_id = model_.getFrameId(frame_name_);
     *position = data_.oMf[frame_id].translation();
     *orientation = Eigen::Quaterniond(data_.oMf[frame_id].rotation());
     return true;
@@ -663,22 +654,33 @@ namespace my_controller
 
     getJacobian();
     getFk(&this->position_, &this->orientation_);
-    //
+
+    // std::cout << "Velocity: " << jacobian_ * dq_ << std::endl;
+    // std::cout << "q_: \n " << q_ << std::endl;
+    // std::cout << "dq_: \n " << dq_ << std::endl;
   }
 
   bool MyController::getJacobian()
   {
-    pinocchio::forwardKinematics(model_, data_, q_);
     std::array<double, 42> endeffector_jacobian_wrt_base = franka_robot_model_->getZeroJacobian(franka::Frame::kFlange);
-    for (int i = 0; i < jacobian_.rows(); ++i)
+    for (int j = 0; j < jacobian_.cols(); ++j)
     {
-      for (int j = 0; j < jacobian_.cols(); ++j)
+      for (int i = 0; i < jacobian_.rows(); ++i)
       {
-        jacobian_(i, j) = endeffector_jacobian_wrt_base[i * jacobian_.cols() + j];
+        int k = j * jacobian_.rows() + i;
+        jacobian_(i, j) = endeffector_jacobian_wrt_base[k];
       }
     }
-    jacobian_ = pinocchio::computeJointJacobians(model_, data_);
-    std::cout << jacobian_ << std::endl;
+    //
+    // pinocchio::computeJointJacobian(model_, data_, q_, 7, jacobian_);
+    // pinocchio::FrameIndex frame_id = model_.getFrameId("panda_hand");
+    // std::cout << frame_id << std::endl;
+    // pinocchio::FrameIndex frame_id = model_.getFrameId(frame_name_);
+    // pinocchio::computeFrameJacobian(model_, data_, q_, frame_id, jacobi-an_);
+    // pinocchio::computeJointJacobians(model_, data_);
+    // pinocchio::framesForwardKinematics(model_, data_, q_);
+    // pinocchio::getJointJacobian(model_, data_, 7, pinocchio::WORLD, jacobian_);
+    std::cout << "Jacobian:" << jacobian_ << std::endl;
     return true;
   }
 
