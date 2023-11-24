@@ -586,17 +586,17 @@ namespace my_controller
 
   void MyController::trajUpdate()
   {
-
+    std::cout << "Trajectory update" << std::endl;
     Eigen::Vector3d position_d_error = (this->position_d_target_) - (this->position_d_);
     if (position_d_error.norm() <= 0.01)
     {
       std::vector<double> positions = trajectory_.points[traj_index_].positions;
       Eigen::VectorXd q = Eigen::Map<Eigen::VectorXd>(positions.data(), positions.size());
       getFk(q, &this->position_d_target_, &this->orientation_d_target_);
-      this->setNullspaceConfig(q_);
+      this->setNullspaceConfig(q);
       this->traj_index_++;
     }
-    if (this->traj_index_ > this->trajectory_.points.size())
+    if (this->traj_index_ >= this->trajectory_.points.size())
     {
       std::cout << "Trajectory completed!" << std::endl;
       this->traj_running_ = false;
@@ -631,7 +631,6 @@ namespace my_controller
   void MyController::initTrajectory(const std::shared_ptr<my_controller_interface::srv::MyController::Request> request,
                                     std::shared_ptr<my_controller_interface::srv::MyController::Response> response)
   {
-    std::cout << "init Trajectory " << std::endl;
     const auto logger = get_node()->get_logger();
     RCLCPP_INFO(logger, "Got trajectory msg from trajectory topic.");
     // error handeling needed, maybe transfer to action server
