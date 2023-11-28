@@ -14,10 +14,12 @@ set(CONTROLLER_INCLUDE_DEPENDS
   rcpputils
   controller_interface
   realtime_tools
+  rclcpp_action
   trajectory_msgs
   pinocchio
   my_controller_interface
   franka_semantic_components
+  franka_msgs
 )
 
 # find dependencies
@@ -49,6 +51,8 @@ $<INSTALL_INTERFACE:include/my_controller>
 ament_target_dependencies(
   my_controller PUBLIC
   franka_semantic_components
+  franka_msgs
+  rclcpp_action
   ${CONTROLLER_INCLUDE_DEPENDS}
 )
 

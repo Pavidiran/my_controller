@@ -17,6 +17,7 @@
 #include "pinocchio/algorithm/jacobian.hxx"
 #include "pinocchio/multibody/fwd.hpp"
 #include "my_controller_interface/srv/my_controller.hpp"
+#include "my_controller_interface/srv/update_params.hpp"
 
 #include "controller_interface/helpers.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
@@ -29,6 +30,7 @@
 #include "hardware_interface/hardware_info.hpp"
 #include "hardware_interface/system_interface.hpp"
 
+#include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp/duration.hpp"
 #include "rclcpp/subscription.hpp"
 #include "rclcpp/time.hpp"
@@ -39,7 +41,10 @@
 #include "trajectory_msgs/msg/joint_trajectory.hpp"
 #include "trajectory_msgs/msg/joint_trajectory_point.hpp"
 
-#include "franka_semantic_components/franka_robot_model.hpp"
+#include "franka_msgs/srv/set_force_torque_collision_behavior.hpp"
+#include "franka_msgs/srv/set_full_collision_behavior.hpp"
+
+using GoalHandleFollowJointTrajectory = rclcpp_action::ServerGoalHandle<control_msgs::action::FollowJointTrajectory>;
 
 namespace my_controller
 {
@@ -108,6 +113,8 @@ namespace my_controller
          * \param[in] n   Nullspace damping
          */
         void setDampingFactors(double d_x, double d_y, double d_z, double d_a, double d_b, double d_c, double d_n);
+
+        void setIntegrator(double d_x, double d_y, double d_z, double d_a, double d_b, double d_c);
 
         /*! \brief Sets the desired end-effector pose
          *
@@ -239,8 +246,9 @@ namespace my_controller
          * \param[in] nh Nodehandle
          * \return Always true.
          */
-        void initTrajectory(const std::shared_ptr<my_controller_interface::srv::MyController::Request> request,
-                            std::shared_ptr<my_controller_interface::srv::MyController::Response> response);
+
+        void updateParams(const std::shared_ptr<my_controller_interface::srv::UpdateParams::Request> request,
+                          std::shared_ptr<my_controller_interface::srv::UpdateParams::Response> response);
 
         CONTROLLER_INTERFACE_PUBLIC
         controller_interface::InterfaceConfiguration command_interface_configuration() const override;
@@ -307,6 +315,8 @@ namespace my_controller
         Eigen::MatrixXd jacobian_; //!< Jacobian. Row format: 3 translations, 3 rotation
 
         // End Effector
+        Eigen::Matrix<double, 6, 6> integrator_weights_{Eigen::Matrix<double, 6, 6>::Identity() * 0.05};
+        Eigen::Matrix<double, 6, 1> error_integrated_{Eigen::Matrix<double, 6, 1>::Zero()};
         Eigen::Matrix<double, 6, 1> error_;                          //!< Calculate pose error
         Eigen::Vector3d position_{Eigen::Vector3d::Zero()};          //!< Current end-effector position
         Eigen::Vector3d position_d_{Eigen::Vector3d::Zero()};        //!< Current end-effector reference position
@@ -328,23 +338,45 @@ namespace my_controller
         double filter_params_pose_{1.0};             //!< Reference pose filtering
         double filter_params_wrench_{1.0};           //!< Commanded wrench filtering
 
-        double delta_tau_max_{0.001}; //!< Maximum allowed torque change per time step
+        double delta_tau_max_{1}; //!< Maximum allowed torque change per time step
 
         bool traj_running_{false};                         //!< True when running a trajectory
         trajectory_msgs::msg::JointTrajectory trajectory_; //!< Currently played trajectory
         unsigned int traj_index_{0};                       //!< Index of the current trajectory point
+        rclcpp::Time traj_start_;                          //!< Time the current trajectory is started
+        bool error_above_threshold_{false};
+        rclcpp::Time time_delay_start_;
+        rclcpp::Duration time_delay_{0, 0};
 
         std::vector<std::string> joint_names_;
         std::vector<std::string> command_interface_types_;
         std::vector<std::string> state_interface_types_;
 
-        rclcpp::Service<my_controller_interface::srv::MyController>::SharedPtr trajectory_service_;
+        // server functions, might be removed later
+        rclcpp::Service<my_controller_interface::srv::UpdateParams>::SharedPtr param_service_;
+        rclcpp::Client<franka_msgs::srv::SetForceTorqueCollisionBehavior>::SharedPtr limit_client_;
         realtime_tools::RealtimeBuffer<std::shared_ptr<trajectory_msgs::msg::JointTrajectory>>
             traj_msg_external_point_ptr_;
         bool new_msg_ = false;
         // rclcpp::Time start_time_;
+
+        // Are these needed?
         std::shared_ptr<trajectory_msgs::msg::JointTrajectory> trajectory_msg_;
         trajectory_msgs::msg::JointTrajectoryPoint point_interp_;
+
+        // Action server
+        rclcpp_action::Server<control_msgs::action::FollowJointTrajectory>::SharedPtr trajectory_action_server_;
+
+        // Callback methods for the action server
+        rclcpp_action::GoalResponse handle_goal(
+            const rclcpp_action::GoalUUID &uuid,
+            std::shared_ptr<const control_msgs::action::FollowJointTrajectory::Goal> goal);
+
+        rclcpp_action::CancelResponse handle_cancel(
+            const std::shared_ptr<GoalHandleFollowJointTrajectory> goal_handle);
+
+        void handle_accepted(
+            const std::shared_ptr<GoalHandleFollowJointTrajectory> goal_handle);
 
         std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface>>
             joint_effort_command_interface_;
@@ -366,14 +398,6 @@ namespace my_controller
                 {"position", &joint_position_state_interface_},
                 {"velocity", &joint_velocity_state_interface_},
                 {"effort", &joint_effort_state_interface_}};
-
-        // franka stuff
-
-        std::string arm_id_{"panda"};
-        std::unique_ptr<franka_semantic_components::FrankaRobotModel> franka_robot_model_;
-
-        const std::string k_robot_state_interface_name{"robot_state"};
-        const std::string k_robot_model_interface_name{"robot_model"};
 
     private:
         /*! \brief Implements the damping based on a stiffness
